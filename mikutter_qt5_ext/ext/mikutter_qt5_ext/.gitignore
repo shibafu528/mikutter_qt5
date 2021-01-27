@@ -1,0 +1,10 @@
+.idea/
+*_autogen/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+install_manifest.txt
+*.dll
+*.so
+*.bundle
+*.cmake

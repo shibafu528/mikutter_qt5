@@ -1,0 +1,10 @@
+---
+slug: :qt5
+depends:
+  mikutter: 4.1.4
+  plugin: 
+    - gui
+version: '1.0'
+author: shibafu528
+name: ''
+description: ''
