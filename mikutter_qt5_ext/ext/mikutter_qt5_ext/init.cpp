@@ -273,12 +273,15 @@ static VALUE qt5_mainloop(int argc, VALUE* argv, VALUE self)
     auto c_deadline = NUM2LL(deadline);
     app->processEvents(QEventLoop::AllEvents, c_deadline);
   } else {
-    QTimer delayerKicker;
-    delayerKicker.setInterval(1000);
-    QObject::connect(&delayerKicker, &QTimer::timeout, []() {
+    // フックで取りこぼしたDelayer Procedureをアレンに回収してもらう
+    // TODO: なぜ取りこぼしているのかを調べる
+    QTimer allen;
+    allen.setInterval(250);
+    QObject::connect(&allen, &QTimer::timeout, []() {
       VALUE delayer = rb_const_get(rb_cObject, rb_intern("Delayer"));
       rb_funcall3(delayer, rb_intern("run"), 0, nullptr);
     });
+    allen.start();
 
     app->exec();
   }
