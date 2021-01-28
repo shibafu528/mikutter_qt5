@@ -10,6 +10,7 @@
 #include <QHBoxLayout>
 #include <QListWidget>
 #include <QEventLoop>
+#include <type_traits>
 
 QApplication *app;
 QMainWindow *main_window;
@@ -21,6 +22,14 @@ VALUE widget_hash;
 
 static int PSEUDO_ARGC = 1;
 static char *PSEUDO_ARGV[1];
+
+const rb_data_type_t QWidgetWrapper = {
+    "QWidgetWrapper",
+    {nullptr, nullptr, nullptr},
+    nullptr,
+    nullptr,
+    RUBY_TYPED_FREE_IMMEDIATELY,
+};
 
 class MikutterWindow : public QMainWindow {
   Q_OBJECT
@@ -36,15 +45,28 @@ public:
   }
 };
 
+static inline VALUE wrap_widget(QWidget *widget)
+{
+  return TypedData_Wrap_Struct(rb_cData, &QWidgetWrapper, widget);
+}
+
+template <typename T>
+static T unwrap_widget(VALUE widget_wrapper)
+{
+  if (RB_NIL_P(widget_wrapper)) {
+    return nullptr;
+  } else {
+    T widget;
+    TypedData_Get_Struct(widget_wrapper, std::remove_pointer_t<T>, &QWidgetWrapper, widget);
+    return widget;
+  }
+}
+
 template <typename T>
 static T widget_hash_lookup(VALUE imaginary)
 {
   VALUE val = rb_hash_aref(widget_hash, imaginary);
-  if (RB_NIL_P(val)) {
-    return nullptr;
-  } else {
-    return reinterpret_cast<T>(val);
-  }
+  return unwrap_widget<T>(val);
 }
 
 static void widget_join_tab(VALUE i_tab, QWidget *widget)
@@ -78,7 +100,7 @@ static void widget_join_tab(VALUE i_tab, QWidget *widget)
 
 VALUE timeline_add_message_i(RB_BLOCK_CALL_FUNC_ARGLIST(message, rb_timeline))
 {
-  auto timeline = reinterpret_cast<QListWidget*>(rb_timeline);
+  auto timeline = unwrap_widget<QListWidget*>(rb_timeline);
 
   VALUE desc = rb_funcall3(message, rb_intern("description"), 0, nullptr);
   timeline->addItem(StringValuePtr(desc));
@@ -86,11 +108,11 @@ VALUE timeline_add_message_i(RB_BLOCK_CALL_FUNC_ARGLIST(message, rb_timeline))
   return Qnil;
 }
 
-static VALUE cplugin_init(VALUE self, VALUE plugin)
+static VALUE qt5_init(VALUE self, VALUE plugin)
 {
   VALUE plugin_slug = rb_funcall(plugin, rb_intern("name"), 0);
   plugin_slug = rb_funcall(plugin_slug, rb_intern("to_s"), 0);
-  fprintf(stderr, "[mikutter_qt5_ext] cplugin_init() plugin slug=%s \n", StringValuePtr(plugin_slug));
+  fprintf(stderr, "[mikutter_qt5_ext] qt5_init() plugin slug=%s \n", StringValuePtr(plugin_slug));
 
   mikutter_plugin_add_event_listener(plugin, "window_created", [](RB_BLOCK_CALL_FUNC_ARGLIST(i_window, callback_arg)) -> VALUE {
     fprintf(stderr, "[mikutter_qt5_ext] on_window_created\n");
@@ -102,7 +124,7 @@ static VALUE cplugin_init(VALUE self, VALUE plugin)
 
     main_window->show();
 
-    rb_hash_aset(widget_hash, i_window, reinterpret_cast<VALUE>(main_window));
+    rb_hash_aset(widget_hash, i_window, wrap_widget(main_window));
     return Qnil;
   });
 
@@ -110,7 +132,7 @@ static VALUE cplugin_init(VALUE self, VALUE plugin)
     fprintf(stderr, "[mikutter_qt5_ext] on_pane_created\n");
 
     auto pane = new QTabWidget();
-    rb_hash_aset(widget_hash, i_pane, reinterpret_cast<VALUE>(pane));
+    rb_hash_aset(widget_hash, i_pane, wrap_widget(pane));
     return Qnil;
   });
 
@@ -125,7 +147,7 @@ static VALUE cplugin_init(VALUE self, VALUE plugin)
     auto layout = new QVBoxLayout(tab);
     tab->setLayout(layout);
 
-    rb_hash_aset(widget_hash, i_tab, reinterpret_cast<VALUE>(tab));
+    rb_hash_aset(widget_hash, i_tab, wrap_widget(tab));
     return Qnil;
   });
 
@@ -137,7 +159,7 @@ static VALUE cplugin_init(VALUE self, VALUE plugin)
     auto list = new QListWidget();
     list->setObjectName(StringValuePtr(tab_name));
 
-    rb_hash_aset(widget_hash, i_timeline, reinterpret_cast<VALUE>(list));
+    rb_hash_aset(widget_hash, i_timeline, wrap_widget(list));
     return Qnil;
   });
 
@@ -220,15 +242,15 @@ static VALUE cplugin_init(VALUE self, VALUE plugin)
     VALUE i_timeline = argv[0];
     VALUE messages = argv[1];
 
-    auto timeline = widget_hash_lookup<QListWidget*>(i_timeline);
-    if (timeline != nullptr) {
+    auto timeline = rb_hash_aref(widget_hash, i_timeline);
+    if (RB_TEST(timeline)) {
       if (rb_obj_is_kind_of(messages, rb_mEnumerable) != Qtrue) {
         messages = rb_ary_new4(1, &messages);
       }
 
       // TODO: use show_filter
 
-      rb_block_call(messages, rb_intern("each"), 0, nullptr, timeline_add_message_i, reinterpret_cast<VALUE>(timeline));
+      rb_block_call(messages, rb_intern("each"), 0, nullptr, timeline_add_message_i, timeline);
     }
 
     return Qnil;
@@ -241,20 +263,29 @@ static VALUE cplugin_init(VALUE self, VALUE plugin)
   return Qnil;
 }
 
-static VALUE cplugin_mainloop(VALUE self)
+static VALUE qt5_mainloop(int argc, VALUE* argv, VALUE self)
 {
-  QTimer delayerKicker;
-  delayerKicker.setInterval(1000);
-  QObject::connect(&delayerKicker, &QTimer::timeout, []() {
-    VALUE delayer = rb_const_get(rb_cObject, rb_intern("Delayer"));
-    rb_funcall3(delayer, rb_intern("run_once"), 0, nullptr);
-  });
+  VALUE deadline;
+  rb_scan_args(argc, argv, "01", &deadline);
 
-  app->exec();
+  if (RB_TEST(deadline)) {
+    deadline = rb_to_int(deadline);
+    auto c_deadline = NUM2LL(deadline);
+    app->processEvents(QEventLoop::AllEvents, c_deadline);
+  } else {
+    QTimer delayerKicker;
+    delayerKicker.setInterval(1000);
+    QObject::connect(&delayerKicker, &QTimer::timeout, []() {
+      VALUE delayer = rb_const_get(rb_cObject, rb_intern("Delayer"));
+      rb_funcall3(delayer, rb_intern("run"), 0, nullptr);
+    });
+
+    app->exec();
+  }
   return Qnil;
 }
 
-static VALUE cplugin_enqueue(VALUE self)
+static VALUE qt5_enqueue(VALUE self)
 {
   if (!rb_block_given_p()) {
     rb_raise(rb_eArgError, "Expected block");
@@ -269,17 +300,17 @@ static VALUE cplugin_enqueue(VALUE self)
   return Qnil;
 }
 
-static VALUE cplugin_enqueue_delayed(VALUE self, VALUE delay)
+static VALUE qt5_enqueue_delayed(VALUE self, VALUE delay)
 {
   if (!rb_block_given_p()) {
     rb_raise(rb_eArgError, "Expected block");
   }
   auto ldelay = FIX2LONG(rb_funcall3(delay, rb_intern("to_i"), 0, nullptr)); // TODO: size check
   auto table_index = dispatch_table_next++;
-  fprintf(stderr, "[mikutter_qt5_ext] cplugin_enqueue_delayed delay=%ld, index=%lu\n", ldelay, table_index);
+  fprintf(stderr, "[mikutter_qt5_ext] qt5_enqueue_delayed delay=%ld, index=%lu\n", ldelay, table_index);
   rb_hash_aset(dispatch_table, ULONG2NUM(table_index), rb_block_proc());
   QTimer::singleShot(ldelay * 1000 + 1500, [table_index]() {
-    fprintf(stderr, "[mikutter_qt5_ext] cplugin_enqueue_delayed run index=%lu\n", table_index);
+    fprintf(stderr, "[mikutter_qt5_ext] qt5_enqueue_delayed run index=%lu\n", table_index);
     VALUE idx = ULONG2NUM(table_index);
     VALUE proc = rb_hash_aref(dispatch_table, idx);
     if (RB_TEST(proc)) {
@@ -304,11 +335,11 @@ extern "C" void Init_mikutter_qt5_ext()
   rb_global_variable(&widget_hash);
 
   VALUE mod_plugin = rb_const_get(rb_cObject, rb_intern("Plugin"));
-  VALUE mod_cplugin = rb_define_module_under(mod_plugin, "CPlugin");
-  rb_define_module_function(mod_cplugin, "init", RUBY_METHOD_FUNC(cplugin_init), 1);
-  rb_define_module_function(mod_cplugin, "mainloop", RUBY_METHOD_FUNC(cplugin_mainloop), 0);
-  rb_define_module_function(mod_cplugin, "enqueue", RUBY_METHOD_FUNC(cplugin_enqueue), 0);
-  rb_define_module_function(mod_cplugin, "enqueue_delayed", RUBY_METHOD_FUNC(cplugin_enqueue_delayed), 1);
+  VALUE mod_cplugin = rb_define_module_under(mod_plugin, "Qt5");
+  rb_define_module_function(mod_cplugin, "init", RUBY_METHOD_FUNC(qt5_init), 1);
+  rb_define_module_function(mod_cplugin, "mainloop", RUBY_METHOD_FUNC(qt5_mainloop), -1);
+  rb_define_module_function(mod_cplugin, "enqueue", RUBY_METHOD_FUNC(qt5_enqueue), 0);
+  rb_define_module_function(mod_cplugin, "enqueue_delayed", RUBY_METHOD_FUNC(qt5_enqueue_delayed), 1);
 }
 
 #include "init.moc"

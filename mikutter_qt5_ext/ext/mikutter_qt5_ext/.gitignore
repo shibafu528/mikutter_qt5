@@ -1,5 +1,6 @@
 .idea/
 *_autogen/
+Testing/
 CMakeFiles/
 CMakeCache.txt
 Makefile
@@ -8,3 +9,4 @@ install_manifest.txt
 *.so
 *.bundle
 *.cmake
+*.cbp

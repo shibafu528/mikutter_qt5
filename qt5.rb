@@ -5,10 +5,10 @@ require_relative 'delayer_hack'
 require_relative 'mainloop'
 
 Plugin.create(:qt5) do
-  Plugin::CPlugin.init(self)
+  Plugin::Qt5.init(self)
 
   def enqueue_delayer_run
-    Plugin::CPlugin.enqueue do
+    Plugin::Qt5.enqueue do
       Delayer.run
     end
   end
@@ -18,17 +18,10 @@ Plugin.create(:qt5) do
   end
 
   Delayer.register_reserve_hook do |delay|
-    Plugin::CPlugin.enqueue_delayed(delay) do
+    Plugin::Qt5.enqueue_delayed(delay) do
       Delayer.run
     end
   end
 
   enqueue_delayer_run
-
-  # TODO: けす
-  Delayer.new do
-    # なんかこの辺でGCで死ぬ
-    Plugin[:world].load_world
-    pp Plugin.collect(:worlds).to_a
-  end
 end

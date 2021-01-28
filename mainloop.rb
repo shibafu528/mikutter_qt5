@@ -8,7 +8,7 @@ module Mainloop
 
   def mainloop
     # Gtk.main
-    Plugin::CPlugin.mainloop
+    Plugin::Qt5.mainloop
   rescue Interrupt, SystemExit, SignalException => exception
     raise exception
   rescue Exception => exception
