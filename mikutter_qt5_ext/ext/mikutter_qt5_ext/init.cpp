@@ -279,6 +279,10 @@ static VALUE qt5_mainloop(int argc, VALUE* argv, VALUE self)
     allen.setInterval(250);
     QObject::connect(&allen, &QTimer::timeout, []() {
       VALUE delayer = rb_const_get(rb_cObject, rb_intern("Delayer"));
+      VALUE size = rb_funcall3(delayer, rb_intern("size"), 0, nullptr);
+      if (FIX2ULONG(size) != 0) {
+        fprintf(stderr, "[mikutter_qt5_ext] Allen says: Waiting %lu delayed procedures!\n", FIX2ULONG(size));
+      }
       rb_funcall3(delayer, rb_intern("run"), 0, nullptr);
     });
     allen.start();
