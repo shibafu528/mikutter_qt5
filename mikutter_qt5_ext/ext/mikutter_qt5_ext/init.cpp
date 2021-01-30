@@ -273,17 +273,11 @@ static VALUE qt5_mainloop(int argc, VALUE* argv, VALUE self)
     auto c_deadline = NUM2LL(deadline);
     app->processEvents(QEventLoop::AllEvents, c_deadline);
   } else {
-    // フックで取りこぼしたDelayer Procedureをアレンに回収してもらう
-    // TODO: なぜ取りこぼしているのかを調べる
+    // The interrupter
     QTimer allen;
     allen.setInterval(250);
     QObject::connect(&allen, &QTimer::timeout, []() {
-      VALUE delayer = rb_const_get(rb_cObject, rb_intern("Delayer"));
-      VALUE size = rb_funcall3(delayer, rb_intern("size"), 0, nullptr);
-      if (FIX2ULONG(size) != 0) {
-        fprintf(stderr, "[mikutter_qt5_ext] Allen says: Waiting %lu delayed procedures!\n", FIX2ULONG(size));
-      }
-//      rb_funcall3(delayer, rb_intern("run"), 0, nullptr);
+      rb_thread_check_ints();
     });
     allen.start();
 
