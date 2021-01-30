@@ -5,7 +5,7 @@ source "https://rubygems.org"
 git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
 
 # ----- ローカルgemを強制的にビルドさせるモンキーパッチ -----
-build_path = Class.new(Bundler::Source::Path) do
+class Bundler::Source::BuildPath < Bundler::Source::Path
   def install(spec, options = {})
     print_using_message "[monkey-patch!!] Using #{version_message(spec)} from #{self}"
     generate_bin(spec, :disable_extensions => false)
@@ -20,9 +20,9 @@ Bundler::Dsl.prepend Module.new {
 }
 
 Bundler::SourceList.prepend Module.new {
-  define_method(:add_path_source) do |options = {}|
+  def add_path_source(options = {})
     if options["build"]
-      add_source_to_list build_path.new(options), path_sources
+      add_source_to_list Bundler::Source::BuildPath.new(options), path_sources
     else
       super
     end
