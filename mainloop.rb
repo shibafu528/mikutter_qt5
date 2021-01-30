@@ -8,6 +8,7 @@ module Mainloop
 
   def mainloop
     # Gtk.main
+    Delayer.run unless Delayer.empty?
     Plugin::Qt5.mainloop
   rescue Interrupt, SystemExit, SignalException => exception
     raise exception
