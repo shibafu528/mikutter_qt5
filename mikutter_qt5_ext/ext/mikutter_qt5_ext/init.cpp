@@ -283,7 +283,7 @@ static VALUE qt5_mainloop(int argc, VALUE* argv, VALUE self)
       if (FIX2ULONG(size) != 0) {
         fprintf(stderr, "[mikutter_qt5_ext] Allen says: Waiting %lu delayed procedures!\n", FIX2ULONG(size));
       }
-      rb_funcall3(delayer, rb_intern("run"), 0, nullptr);
+//      rb_funcall3(delayer, rb_intern("run"), 0, nullptr);
     });
     allen.start();
 
@@ -292,15 +292,26 @@ static VALUE qt5_mainloop(int argc, VALUE* argv, VALUE self)
   return Qnil;
 }
 
+template <typename Func>
+static void post_to_main_thread(int msec, Func function)
+{
+  auto timer = new QTimer();
+  timer->setSingleShot(true);
+  timer->moveToThread(app->thread());
+  QObject::connect(timer, &QTimer::timeout, function);
+  QObject::connect(timer, &QTimer::timeout, timer, &QObject::deleteLater);
+  QMetaObject::invokeMethod(timer, "start", Qt::QueuedConnection, Q_ARG(int, msec));
+}
+
 static VALUE qt5_enqueue(VALUE self)
 {
   if (!rb_block_given_p()) {
     rb_raise(rb_eArgError, "Expected block");
   }
   rb_ary_push(dispatch_queue, rb_block_proc());
-  QTimer::singleShot(0, []() {
+  post_to_main_thread(0, []() {
     VALUE proc = Qnil;
-    while ((proc = rb_ary_shift(dispatch_queue)) != Qnil) {
+    while (RB_TEST(proc = rb_ary_shift(dispatch_queue))) {
       rb_funcall(proc, rb_intern("call"), 0);
     }
   });
@@ -316,7 +327,7 @@ static VALUE qt5_enqueue_delayed(VALUE self, VALUE delay)
   auto table_index = dispatch_table_next++;
   fprintf(stderr, "[mikutter_qt5_ext] qt5_enqueue_delayed delay=%ld, index=%lu\n", ldelay, table_index);
   rb_hash_aset(dispatch_table, ULONG2NUM(table_index), rb_block_proc());
-  QTimer::singleShot(ldelay * 1000 + 1500, [table_index]() {
+  post_to_main_thread(ldelay * 1000 + 1500, [table_index]() {
     fprintf(stderr, "[mikutter_qt5_ext] qt5_enqueue_delayed run index=%lu\n", table_index);
     VALUE idx = ULONG2NUM(table_index);
     VALUE proc = rb_hash_aref(dispatch_table, idx);
