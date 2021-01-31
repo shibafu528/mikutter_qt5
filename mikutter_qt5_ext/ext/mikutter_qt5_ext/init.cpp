@@ -1,6 +1,5 @@
 #include <QApplication>
 #include <QEventLoop>
-#include <QListWidget>
 #include <QMainWindow>
 #include <QMessageBox>
 #include <QTimer>
@@ -9,6 +8,7 @@
 
 #include "mikutter.hpp"
 #include "ui/MikutterWindow.hpp"
+#include "ui/Timeline.hpp"
 #include "utils.hpp"
 
 QApplication *app;
@@ -73,15 +73,6 @@ static void widget_join_tab(VALUE i_tab, QWidget *widget) {
   pane->addTab(tab, StringValuePtr(tab_name));
 }
 
-VALUE timeline_add_message_i(RB_BLOCK_CALL_FUNC_ARGLIST(message, rb_timeline)) {
-  auto timeline = unwrap_widget<QListWidget *>(rb_timeline);
-
-  VALUE desc = rb_funcall3(message, rb_intern("description"), 0, nullptr);
-  timeline->addItem(StringValuePtr(desc));
-
-  return Qnil;
-}
-
 static VALUE qt5_init(VALUE self, VALUE plugin) {
   VALUE plugin_slug = rb_funcall(plugin, rb_intern("name"), 0);
   plugin_slug = rb_funcall(plugin_slug, rb_intern("to_s"), 0);
@@ -133,10 +124,10 @@ static VALUE qt5_init(VALUE self, VALUE plugin) {
 
                                        VALUE tab_name = rb_funcall3(i_timeline, rb_intern("name"), 0, nullptr);
 
-                                       auto list = new QListWidget();
-                                       list->setObjectName(StringValuePtr(tab_name));
+                                       auto timeline = new Timeline(i_timeline);
+                                       timeline->setObjectName(StringValuePtr(tab_name));
 
-                                       rb_hash_aset(widget_hash, i_timeline, wrap_widget(list));
+                                       rb_hash_aset(widget_hash, i_timeline, wrap_widget(timeline));
                                        return Qnil;
                                      });
 
@@ -218,25 +209,19 @@ static VALUE qt5_init(VALUE self, VALUE plugin) {
 
   mikutter_plugin_add_event_listener(
       plugin, "gui_timeline_add_messages", [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
-        mqt_log("on_gui_timeline_add_messages");
+                                       mqt_log("on_gui_timeline_add_messages");
 
-        rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
-        VALUE i_timeline = argv[0];
-        VALUE messages = argv[1];
+                                       rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
+                                       VALUE i_timeline = argv[0];
+                                       VALUE messages = argv[1];
 
-        auto timeline = rb_hash_aref(widget_hash, i_timeline);
-        if (RB_TEST(timeline)) {
-          if (rb_obj_is_kind_of(messages, rb_mEnumerable) != Qtrue) {
-            messages = rb_ary_new4(1, &messages);
-          }
+                                       auto timeline = widget_hash_lookup<Timeline *>(i_timeline);
+                                       if (timeline != nullptr) {
+                                         timeline->add(messages);
+                                       }
 
-          // TODO: use show_filter
-
-          rb_block_call(messages, rb_intern("each"), 0, nullptr, timeline_add_message_i, timeline);
-        }
-
-        return Qnil;
-      });
+                                       return Qnil;
+                                     });
 
   // TODO: ヤバすぎるので何とかする
   PSEUDO_ARGV[0] = "ruby";
@@ -265,22 +250,12 @@ static VALUE qt5_mainloop(int argc, VALUE *argv, VALUE self) {
   return Qnil;
 }
 
-template <typename Func>
-static void post_to_main_thread(int msec, Func function) {
-  auto timer = new QTimer();
-  timer->setSingleShot(true);
-  timer->moveToThread(app->thread());
-  QObject::connect(timer, &QTimer::timeout, function);
-  QObject::connect(timer, &QTimer::timeout, timer, &QObject::deleteLater);
-  QMetaObject::invokeMethod(timer, "start", Qt::QueuedConnection, Q_ARG(int, msec));
-}
-
 static VALUE qt5_enqueue(VALUE self) {
   if (!rb_block_given_p()) {
     rb_raise(rb_eArgError, "Expected block");
   }
   rb_ary_push(dispatch_queue, rb_block_proc());
-  post_to_main_thread(0, []() {
+  mqt_post_to_main_thread(0, []() {
     VALUE proc = Qnil;
     while (RB_TEST(proc = rb_ary_shift(dispatch_queue))) {
       rb_funcall(proc, rb_intern("call"), 0);
@@ -296,7 +271,7 @@ static VALUE qt5_enqueue_delayed(VALUE self, VALUE delay) {
   auto ldelay = FIX2INT(rb_funcall3(delay, rb_intern("to_i"), 0, nullptr));  // TODO: size check
   auto table_index = dispatch_table_next++;
   rb_hash_aset(dispatch_table, ULONG2NUM(table_index), rb_block_proc());
-  post_to_main_thread(ldelay * 1000 + 1500, [table_index]() {
+  mqt_post_to_main_thread(ldelay * 1000 + 1500, [table_index]() {
     VALUE idx = ULONG2NUM(table_index);
     VALUE proc = rb_hash_aref(dispatch_table, idx);
     if (RB_TEST(proc)) {

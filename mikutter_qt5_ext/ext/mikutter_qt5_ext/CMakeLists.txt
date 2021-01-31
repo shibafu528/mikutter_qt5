@@ -15,14 +15,16 @@ execute_process(
 )
 
 add_library(
-  mikutter_qt5_ext
-  MODULE
-  mikutter.cpp
-  mikutter.hpp
-  init.cpp
+        mikutter_qt5_ext
+        MODULE
+        mikutter.cpp
+        mikutter.hpp
+        init.cpp
         utils.hpp
         ui/MikutterWindow.cpp
-  ui/MikutterWindow.hpp
+        ui/MikutterWindow.hpp
+        ui/Timeline.cpp
+        ui/Timeline.hpp
 )
 
 set_target_properties(mikutter_qt5_ext PROPERTIES PREFIX "")
