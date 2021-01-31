@@ -20,7 +20,8 @@ add_library(
   mikutter.cpp
   mikutter.hpp
   init.cpp
-  ui/MikutterWindow.cpp
+        utils.hpp
+        ui/MikutterWindow.cpp
   ui/MikutterWindow.hpp
 )
 
