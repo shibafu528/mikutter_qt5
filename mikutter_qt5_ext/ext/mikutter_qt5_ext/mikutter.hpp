@@ -15,7 +15,7 @@ namespace mikutter {
   static constexpr int HYDE = 156;
 
   extern const rb_data_type_t CppProcFunction;
-  using CppProcFn = std::function<VALUE(VALUE, VALUE, int, const VALUE*, VALUE)>;
+  using CppProcFn = std::function<VALUE(VALUE, VALUE, int, const VALUE *, VALUE)>;
 
   static inline VALUE wrap_cpp_proc_function(const CppProcFn &fn) {
     return TypedData_Wrap_Struct(rb_cData, &CppProcFunction, new CppProcFn(fn));
@@ -26,7 +26,7 @@ namespace mikutter {
     TypedData_Get_Struct(callback_arg, CppProcFn, &CppProcFunction, fn);
     return (*fn)(yielded_arg, callback_arg, argc, argv, blockarg);
   }
-}
+}  // namespace mikutter
 
 template <typename... Args>
 void mikutter_plugin_call(VALUE event_name, Args... args) {
@@ -40,7 +40,8 @@ static inline VALUE mikutter_plugin_add_event_listener(VALUE plugin, const char 
   return rb_funcall_with_block(plugin, rb_intern("add_event"), 1, &rb_event_name, callback);
 }
 
-static inline VALUE mikutter_plugin_add_event_listener(VALUE plugin, const char *event_name, const mikutter::CppProcFn &callback) {
+static inline VALUE mikutter_plugin_add_event_listener(VALUE plugin, const char *event_name,
+                                                       const mikutter::CppProcFn &callback) {
   VALUE rb_event_name = rb_str_new2(event_name);
   VALUE rb_cpp_func = mikutter::wrap_cpp_proc_function(callback);
   VALUE rb_callback = rb_proc_new(mikutter::cpp_proc_function_trampoline, rb_cpp_func);

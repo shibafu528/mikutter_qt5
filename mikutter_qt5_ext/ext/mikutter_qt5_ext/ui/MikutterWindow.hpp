@@ -4,10 +4,10 @@
 #include <QMainWindow>
 
 class MikutterWindow : public QMainWindow {
-    Q_OBJECT
+  Q_OBJECT
 
 public:
-    explicit MikutterWindow(QWidget *parent = nullptr);
+  explicit MikutterWindow(QWidget *parent = nullptr);
 };
 
 #endif  // MIKUTTER_QT5_EXT_MIKUTTERWINDOW_HPP

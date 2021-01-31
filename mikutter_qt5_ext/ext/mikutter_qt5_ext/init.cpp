@@ -1,14 +1,15 @@
-#include "mikutter.hpp"
-
 #include <stdio.h>
+
 #include <QApplication>
-#include <QMainWindow>
-#include <QTimer>
-#include <QMessageBox>
-#include <QVBoxLayout>
-#include <QListWidget>
 #include <QEventLoop>
+#include <QListWidget>
+#include <QMainWindow>
+#include <QMessageBox>
+#include <QTimer>
+#include <QVBoxLayout>
 #include <type_traits>
+
+#include "mikutter.hpp"
 #include "ui/MikutterWindow.hpp"
 
 QApplication *app;
@@ -23,21 +24,13 @@ static int PSEUDO_ARGC = 1;
 static char *PSEUDO_ARGV[1];
 
 const rb_data_type_t QWidgetWrapper = {
-    "QWidgetWrapper",
-    {nullptr, nullptr, nullptr},
-    nullptr,
-    nullptr,
-    RUBY_TYPED_FREE_IMMEDIATELY,
+    "QWidgetWrapper", {nullptr, nullptr, nullptr}, nullptr, nullptr, RUBY_TYPED_FREE_IMMEDIATELY,
 };
 
-static inline VALUE wrap_widget(QWidget *widget)
-{
-  return TypedData_Wrap_Struct(rb_cData, &QWidgetWrapper, widget);
-}
+static inline VALUE wrap_widget(QWidget *widget) { return TypedData_Wrap_Struct(rb_cData, &QWidgetWrapper, widget); }
 
 template <typename T>
-static T unwrap_widget(VALUE widget_wrapper)
-{
+static T unwrap_widget(VALUE widget_wrapper) {
   if (RB_NIL_P(widget_wrapper)) {
     return nullptr;
   } else {
@@ -48,15 +41,13 @@ static T unwrap_widget(VALUE widget_wrapper)
 }
 
 template <typename T>
-static T widget_hash_lookup(VALUE imaginary)
-{
+static T widget_hash_lookup(VALUE imaginary) {
   VALUE val = rb_hash_aref(widget_hash, imaginary);
   return unwrap_widget<T>(val);
 }
 
-static void widget_join_tab(VALUE i_tab, QWidget *widget)
-{
-  auto tab = widget_hash_lookup<QWidget*>(i_tab);
+static void widget_join_tab(VALUE i_tab, QWidget *widget) {
+  auto tab = widget_hash_lookup<QWidget *>(i_tab);
   if (tab == nullptr) {
     return;
   }
@@ -66,7 +57,7 @@ static void widget_join_tab(VALUE i_tab, QWidget *widget)
     return;
   }
 
-  auto pane = widget_hash_lookup<QTabWidget*>(i_pane);
+  auto pane = widget_hash_lookup<QTabWidget *>(i_pane);
   if (pane == nullptr) {
     return;
   }
@@ -83,9 +74,8 @@ static void widget_join_tab(VALUE i_tab, QWidget *widget)
   pane->addTab(tab, StringValuePtr(tab_name));
 }
 
-VALUE timeline_add_message_i(RB_BLOCK_CALL_FUNC_ARGLIST(message, rb_timeline))
-{
-  auto timeline = unwrap_widget<QListWidget*>(rb_timeline);
+VALUE timeline_add_message_i(RB_BLOCK_CALL_FUNC_ARGLIST(message, rb_timeline)) {
+  auto timeline = unwrap_widget<QListWidget *>(rb_timeline);
 
   VALUE desc = rb_funcall3(message, rb_intern("description"), 0, nullptr);
   timeline->addItem(StringValuePtr(desc));
@@ -93,163 +83,170 @@ VALUE timeline_add_message_i(RB_BLOCK_CALL_FUNC_ARGLIST(message, rb_timeline))
   return Qnil;
 }
 
-static VALUE qt5_init(VALUE self, VALUE plugin)
-{
+static VALUE qt5_init(VALUE self, VALUE plugin) {
   VALUE plugin_slug = rb_funcall(plugin, rb_intern("name"), 0);
   plugin_slug = rb_funcall(plugin_slug, rb_intern("to_s"), 0);
   fprintf(stderr, "[mikutter_qt5_ext] qt5_init() plugin slug=%s \n", StringValuePtr(plugin_slug));
 
-  mikutter_plugin_add_event_listener(plugin, "window_created", [](RB_BLOCK_CALL_FUNC_ARGLIST(i_window, callback_arg)) -> VALUE {
-    fprintf(stderr, "[mikutter_qt5_ext] on_window_created\n");
+  mikutter_plugin_add_event_listener(plugin, "window_created",
+                                     [](RB_BLOCK_CALL_FUNC_ARGLIST(i_window, callback_arg)) -> VALUE {
+                                       fprintf(stderr, "[mikutter_qt5_ext] on_window_created\n");
 
-    main_window = new MikutterWindow();
+                                       main_window = new MikutterWindow();
 
-    auto name = rb_funcall3(i_window, rb_intern("name"), 0, nullptr);
-    main_window->setWindowTitle(StringValuePtr(name));
+                                       auto name = rb_funcall3(i_window, rb_intern("name"), 0, nullptr);
+                                       main_window->setWindowTitle(StringValuePtr(name));
 
-    main_window->show();
+                                       main_window->show();
 
-    rb_hash_aset(widget_hash, i_window, wrap_widget(main_window));
-    return Qnil;
-  });
+                                       rb_hash_aset(widget_hash, i_window, wrap_widget(main_window));
+                                       return Qnil;
+                                     });
 
-  mikutter_plugin_add_event_listener(plugin, "pane_created", [](RB_BLOCK_CALL_FUNC_ARGLIST(i_pane, callback_arg)) -> VALUE {
-    fprintf(stderr, "[mikutter_qt5_ext] on_pane_created\n");
+  mikutter_plugin_add_event_listener(plugin, "pane_created",
+                                     [](RB_BLOCK_CALL_FUNC_ARGLIST(i_pane, callback_arg)) -> VALUE {
+                                       fprintf(stderr, "[mikutter_qt5_ext] on_pane_created\n");
 
-    auto pane = new QTabWidget();
-    rb_hash_aset(widget_hash, i_pane, wrap_widget(pane));
-    return Qnil;
-  });
+                                       auto pane = new QTabWidget();
+                                       rb_hash_aset(widget_hash, i_pane, wrap_widget(pane));
+                                       return Qnil;
+                                     });
 
-  mikutter_plugin_add_event_listener(plugin, "tab_created", [](RB_BLOCK_CALL_FUNC_ARGLIST(i_tab, callback_arg)) -> VALUE {
-    fprintf(stderr, "[mikutter_qt5_ext] on_tab_created\n");
+  mikutter_plugin_add_event_listener(plugin, "tab_created",
+                                     [](RB_BLOCK_CALL_FUNC_ARGLIST(i_tab, callback_arg)) -> VALUE {
+                                       fprintf(stderr, "[mikutter_qt5_ext] on_tab_created\n");
 
-    VALUE tab_name = rb_funcall3(i_tab, rb_intern("name"), 0, nullptr);
+                                       VALUE tab_name = rb_funcall3(i_tab, rb_intern("name"), 0, nullptr);
 
-    auto tab = new QWidget();
-    tab->setObjectName(StringValuePtr(tab_name));
+                                       auto tab = new QWidget();
+                                       tab->setObjectName(StringValuePtr(tab_name));
 
-    auto layout = new QVBoxLayout(tab);
-    tab->setLayout(layout);
+                                       auto layout = new QVBoxLayout(tab);
+                                       tab->setLayout(layout);
 
-    rb_hash_aset(widget_hash, i_tab, wrap_widget(tab));
-    return Qnil;
-  });
+                                       rb_hash_aset(widget_hash, i_tab, wrap_widget(tab));
+                                       return Qnil;
+                                     });
 
-  mikutter_plugin_add_event_listener(plugin, "timeline_created", [](RB_BLOCK_CALL_FUNC_ARGLIST(i_timeline, callback_arg)) -> VALUE {
-    fprintf(stderr, "[mikutter_qt5_ext] on_timeline_created\n");
+  mikutter_plugin_add_event_listener(plugin, "timeline_created",
+                                     [](RB_BLOCK_CALL_FUNC_ARGLIST(i_timeline, callback_arg)) -> VALUE {
+                                       fprintf(stderr, "[mikutter_qt5_ext] on_timeline_created\n");
 
-    VALUE tab_name = rb_funcall3(i_timeline, rb_intern("name"), 0, nullptr);
+                                       VALUE tab_name = rb_funcall3(i_timeline, rb_intern("name"), 0, nullptr);
 
-    auto list = new QListWidget();
-    list->setObjectName(StringValuePtr(tab_name));
+                                       auto list = new QListWidget();
+                                       list->setObjectName(StringValuePtr(tab_name));
 
-    rb_hash_aset(widget_hash, i_timeline, wrap_widget(list));
-    return Qnil;
-  });
+                                       rb_hash_aset(widget_hash, i_timeline, wrap_widget(list));
+                                       return Qnil;
+                                     });
 
-  mikutter_plugin_add_event_listener(plugin, "gui_pane_join_window", [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
-    fprintf(stderr, "[mikutter_qt5_ext] on_gui_pane_join_window\n");
+  mikutter_plugin_add_event_listener(plugin, "gui_pane_join_window",
+                                     [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
+                                       fprintf(stderr, "[mikutter_qt5_ext] on_gui_pane_join_window\n");
 
-    rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
-    VALUE i_pane = argv[0];
-    VALUE i_window = argv[1];
+                                       rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
+                                       VALUE i_pane = argv[0];
+                                       VALUE i_window = argv[1];
 
-    auto window = widget_hash_lookup<QMainWindow*>(i_window);
-    auto pane = widget_hash_lookup<QTabWidget*>(i_pane);
+                                       auto window = widget_hash_lookup<QMainWindow *>(i_window);
+                                       auto pane = widget_hash_lookup<QTabWidget *>(i_pane);
 
-    if (pane->parent() == nullptr) {
-      // attach
-      window->centralWidget()->layout()->addWidget(pane);
-    } else {
-      // reattach
-      qobject_cast<QLayout*>(pane->parent())->removeWidget(pane);
-      window->centralWidget()->layout()->addWidget(pane);
-    }
+                                       if (pane->parent() == nullptr) {
+                                         // attach
+                                         window->centralWidget()->layout()->addWidget(pane);
+                                       } else {
+                                         // reattach
+                                         qobject_cast<QLayout *>(pane->parent())->removeWidget(pane);
+                                         window->centralWidget()->layout()->addWidget(pane);
+                                       }
 
-    return Qnil;
-  });
+                                       return Qnil;
+                                     });
 
-  mikutter_plugin_add_event_listener(plugin, "gui_tab_join_pane", [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
-    fprintf(stderr, "[mikutter_qt5_ext] on_gui_tab_join_pane\n");
+  mikutter_plugin_add_event_listener(
+      plugin, "gui_tab_join_pane", [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
+        fprintf(stderr, "[mikutter_qt5_ext] on_gui_tab_join_pane\n");
 
-    rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
-    VALUE i_tab = argv[0];
-    VALUE i_pane = argv[1];
+        rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
+        VALUE i_tab = argv[0];
+        VALUE i_pane = argv[1];
 
-    VALUE i_widget = rb_funcall3(rb_funcall3(i_tab, rb_intern("children"), 0, nullptr), rb_intern("first"), 0, nullptr);
-    if (RB_NIL_P(i_widget)) {
-      return Qnil;
-    }
+        VALUE i_widget =
+            rb_funcall3(rb_funcall3(i_tab, rb_intern("children"), 0, nullptr), rb_intern("first"), 0, nullptr);
+        if (RB_NIL_P(i_widget)) {
+          return Qnil;
+        }
 
-    auto widget = widget_hash_lookup<QWidget*>(i_widget);
-    if (widget == nullptr) {
-      return Qnil;
-    }
+        auto widget = widget_hash_lookup<QWidget *>(i_widget);
+        if (widget == nullptr) {
+          return Qnil;
+        }
 
-    auto tab = widget_hash_lookup<QWidget*>(i_tab);
-    auto pane = widget_hash_lookup<QTabWidget*>(i_pane);
+        auto tab = widget_hash_lookup<QWidget *>(i_tab);
+        auto pane = widget_hash_lookup<QTabWidget *>(i_pane);
 
-    auto old_pane = widget->parentWidget();
-    while (old_pane != nullptr && qobject_cast<QTabWidget*>(old_pane) != nullptr) {
-      old_pane = old_pane->parentWidget();
-    }
+        auto old_pane = widget->parentWidget();
+        while (old_pane != nullptr && qobject_cast<QTabWidget *>(old_pane) != nullptr) {
+          old_pane = old_pane->parentWidget();
+        }
 
-    if (tab != nullptr && pane != nullptr && old_pane != nullptr && pane != old_pane) {
-      // TODO: reparent
-//      if (tab->parentWidget() != nullptr) {
-//
-//      }
-    }
+        if (tab != nullptr && pane != nullptr && old_pane != nullptr && pane != old_pane) {
+          // TODO: reparent
+          //      if (tab->parentWidget() != nullptr) {
+          //
+          //      }
+        }
 
-    return Qnil;
-  });
+        return Qnil;
+      });
 
-  mikutter_plugin_add_event_listener(plugin, "gui_timeline_join_tab", [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
-    fprintf(stderr, "[mikutter_qt5_ext] on_gui_timeline_join_tab\n");
+  mikutter_plugin_add_event_listener(plugin, "gui_timeline_join_tab",
+                                     [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
+                                       fprintf(stderr, "[mikutter_qt5_ext] on_gui_timeline_join_tab\n");
 
-    rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
-    VALUE i_timeline = argv[0];
-    VALUE i_tab = argv[1];
+                                       rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
+                                       VALUE i_timeline = argv[0];
+                                       VALUE i_tab = argv[1];
 
-    auto widget = widget_hash_lookup<QWidget*>(i_timeline);
-    if (widget != nullptr) {
-      widget_join_tab(i_tab, widget);
-    }
+                                       auto widget = widget_hash_lookup<QWidget *>(i_timeline);
+                                       if (widget != nullptr) {
+                                         widget_join_tab(i_tab, widget);
+                                       }
 
-    return Qnil;
-  });
+                                       return Qnil;
+                                     });
 
-  mikutter_plugin_add_event_listener(plugin, "gui_timeline_add_messages", [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
-    fprintf(stderr, "[mikutter_qt5_ext] on_gui_timeline_add_messages\n");
+  mikutter_plugin_add_event_listener(
+      plugin, "gui_timeline_add_messages", [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
+        fprintf(stderr, "[mikutter_qt5_ext] on_gui_timeline_add_messages\n");
 
-    rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
-    VALUE i_timeline = argv[0];
-    VALUE messages = argv[1];
+        rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
+        VALUE i_timeline = argv[0];
+        VALUE messages = argv[1];
 
-    auto timeline = rb_hash_aref(widget_hash, i_timeline);
-    if (RB_TEST(timeline)) {
-      if (rb_obj_is_kind_of(messages, rb_mEnumerable) != Qtrue) {
-        messages = rb_ary_new4(1, &messages);
-      }
+        auto timeline = rb_hash_aref(widget_hash, i_timeline);
+        if (RB_TEST(timeline)) {
+          if (rb_obj_is_kind_of(messages, rb_mEnumerable) != Qtrue) {
+            messages = rb_ary_new4(1, &messages);
+          }
 
-      // TODO: use show_filter
+          // TODO: use show_filter
 
-      rb_block_call(messages, rb_intern("each"), 0, nullptr, timeline_add_message_i, timeline);
-    }
+          rb_block_call(messages, rb_intern("each"), 0, nullptr, timeline_add_message_i, timeline);
+        }
 
-    return Qnil;
-  });
+        return Qnil;
+      });
 
   // TODO: ヤバすぎるので何とかする
   PSEUDO_ARGV[0] = "ruby";
-  app = new QApplication(PSEUDO_ARGC, (char**) PSEUDO_ARGV);
-  
+  app = new QApplication(PSEUDO_ARGC, (char **)PSEUDO_ARGV);
+
   return Qnil;
 }
 
-static VALUE qt5_mainloop(int argc, VALUE* argv, VALUE self)
-{
+static VALUE qt5_mainloop(int argc, VALUE *argv, VALUE self) {
   VALUE deadline;
   rb_scan_args(argc, argv, "01", &deadline);
 
@@ -261,9 +258,7 @@ static VALUE qt5_mainloop(int argc, VALUE* argv, VALUE self)
     // The interrupter
     QTimer allen;
     allen.setInterval(250);
-    QObject::connect(&allen, &QTimer::timeout, []() {
-      rb_thread_check_ints();
-    });
+    QObject::connect(&allen, &QTimer::timeout, []() { rb_thread_check_ints(); });
     allen.start();
 
     app->exec();
@@ -272,8 +267,7 @@ static VALUE qt5_mainloop(int argc, VALUE* argv, VALUE self)
 }
 
 template <typename Func>
-static void post_to_main_thread(int msec, Func function)
-{
+static void post_to_main_thread(int msec, Func function) {
   auto timer = new QTimer();
   timer->setSingleShot(true);
   timer->moveToThread(app->thread());
@@ -282,8 +276,7 @@ static void post_to_main_thread(int msec, Func function)
   QMetaObject::invokeMethod(timer, "start", Qt::QueuedConnection, Q_ARG(int, msec));
 }
 
-static VALUE qt5_enqueue(VALUE self)
-{
+static VALUE qt5_enqueue(VALUE self) {
   if (!rb_block_given_p()) {
     rb_raise(rb_eArgError, "Expected block");
   }
@@ -297,12 +290,11 @@ static VALUE qt5_enqueue(VALUE self)
   return Qnil;
 }
 
-static VALUE qt5_enqueue_delayed(VALUE self, VALUE delay)
-{
+static VALUE qt5_enqueue_delayed(VALUE self, VALUE delay) {
   if (!rb_block_given_p()) {
     rb_raise(rb_eArgError, "Expected block");
   }
-  auto ldelay = FIX2LONG(rb_funcall3(delay, rb_intern("to_i"), 0, nullptr)); // TODO: size check
+  auto ldelay = FIX2LONG(rb_funcall3(delay, rb_intern("to_i"), 0, nullptr));  // TODO: size check
   auto table_index = dispatch_table_next++;
   fprintf(stderr, "[mikutter_qt5_ext] qt5_enqueue_delayed delay=%ld, index=%lu\n", ldelay, table_index);
   rb_hash_aset(dispatch_table, ULONG2NUM(table_index), rb_block_proc());
@@ -318,8 +310,7 @@ static VALUE qt5_enqueue_delayed(VALUE self, VALUE delay)
   return Qnil;
 }
 
-extern "C" void Init_mikutter_qt5_ext()
-{
+extern "C" void Init_mikutter_qt5_ext() {
   fprintf(stderr, "[mikutter_qt5_ext] Init_mikutter_qt5_ext()\n");
 
   dispatch_queue = rb_ary_new();
