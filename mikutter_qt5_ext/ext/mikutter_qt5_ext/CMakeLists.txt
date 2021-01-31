@@ -20,6 +20,8 @@ add_library(
   mikutter.cpp
   mikutter.hpp
   init.cpp
+  ui/MikutterWindow.cpp
+  ui/MikutterWindow.hpp
 )
 
 set_target_properties(mikutter_qt5_ext PROPERTIES PREFIX "")

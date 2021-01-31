@@ -3,14 +3,13 @@
 #include <stdio.h>
 #include <QApplication>
 #include <QMainWindow>
-#include <QPushButton>
 #include <QTimer>
 #include <QMessageBox>
 #include <QVBoxLayout>
-#include <QHBoxLayout>
 #include <QListWidget>
 #include <QEventLoop>
 #include <type_traits>
+#include "ui/MikutterWindow.hpp"
 
 QApplication *app;
 QMainWindow *main_window;
@@ -29,20 +28,6 @@ const rb_data_type_t QWidgetWrapper = {
     nullptr,
     nullptr,
     RUBY_TYPED_FREE_IMMEDIATELY,
-};
-
-class MikutterWindow : public QMainWindow {
-  Q_OBJECT
-
-public:
-  explicit MikutterWindow(QWidget *parent = nullptr) : QMainWindow(parent) {
-    setWindowTitle("mikutter");
-
-    auto central = new QWidget(this);
-    central->setLayout(new QHBoxLayout(central));
-
-    setCentralWidget(central);
-  }
 };
 
 static inline VALUE wrap_widget(QWidget *widget)
@@ -353,5 +338,3 @@ extern "C" void Init_mikutter_qt5_ext()
   rb_define_module_function(mod_cplugin, "enqueue", RUBY_METHOD_FUNC(qt5_enqueue), 0);
   rb_define_module_function(mod_cplugin, "enqueue_delayed", RUBY_METHOD_FUNC(qt5_enqueue_delayed), 1);
 }
-
-#include "init.moc"
