@@ -11,6 +11,9 @@
 #include <utility>
 
 namespace mikutter {
+  /** @see https://social.mikutter.hachune.net/@toshi_a/105649126549745595 */
+  static constexpr int HYDE = 156;
+
   extern const rb_data_type_t CppProcFunction;
   using CppProcFn = std::function<VALUE(VALUE, VALUE, int, const VALUE*, VALUE)>;
 
