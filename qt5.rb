@@ -15,4 +15,9 @@ Plugin.create(:qt5) do
   Delayer.register_remain_hook(&method(:enqueue_delayer_run))
 
   enqueue_delayer_run
+
+  filter_gui_timeline_select_messages do |i_timeline, messages|
+    # TODO: これだと常に挿入されるから、C++側で判定しないとだめ
+    [i_timeline, []]
+  end
 end

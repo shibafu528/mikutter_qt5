@@ -213,8 +213,8 @@ static VALUE qt5_init(VALUE self, VALUE plugin) {
                                        return Qnil;
                                      });
 
-  mikutter_plugin_add_event_listener(
-      plugin, "gui_timeline_add_messages", [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
+  mikutter_plugin_add_event_listener(plugin, "gui_timeline_add_messages",
+                                     [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
                                        mqt_log("on_gui_timeline_add_messages");
 
                                        rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
