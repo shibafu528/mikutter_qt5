@@ -3,8 +3,16 @@
 static VALUE timeline_add_message_i(RB_BLOCK_CALL_FUNC_ARGLIST(message, timeline_ptr)) {
   auto timeline = reinterpret_cast<Timeline *>(timeline_ptr);
 
+  VALUE user = rb_funcall3(message, rb_intern("user"), 0, nullptr);
+  VALUE idname;
+  if (RB_TEST(user)) {
+    idname = rb_funcall3(user, rb_intern("idname"), 0, nullptr);
+  } else {
+    idname = rb_str_new_cstr("");
+  }
+
   VALUE desc = rb_funcall3(message, rb_intern("description"), 0, nullptr);
-  timeline->addItem(StringValuePtr(desc));
+  timeline->addItem(QString("@%1: %2").arg(StringValuePtr(idname), StringValuePtr(desc)));
 
   return Qnil;
 }
