@@ -6,6 +6,12 @@
 #include <QVBoxLayout>
 #include <type_traits>
 
+#ifdef __APPLE__
+#include <QFont>
+#include <QLocale>
+#include <QOperatingSystemVersion>
+#endif
+
 #include "mikutter.hpp"
 #include "ui/MikutterWindow.hpp"
 #include "ui/Timeline.hpp"
@@ -226,6 +232,14 @@ static VALUE qt5_init(VALUE self, VALUE plugin) {
   // TODO: ヤバすぎるので何とかする
   PSEUDO_ARGV[0] = "ruby";
   app = new QApplication(PSEUDO_ARGC, (char **)PSEUDO_ARGV);
+
+#ifdef __APPLE__
+  QLocale locale;
+  if (locale.language() == QLocale::Language::Japanese &&
+      QOperatingSystemVersion::current() >= QOperatingSystemVersion::MacOSCatalina) {
+    QFont::insertSubstitution(".AppleSystemUIFont", "Hiragino Sans");
+  }
+#endif
 
   return Qnil;
 }
