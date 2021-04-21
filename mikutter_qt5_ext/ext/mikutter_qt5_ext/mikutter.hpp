@@ -48,4 +48,17 @@ static inline VALUE mikutter_plugin_add_event_listener(VALUE plugin, const char 
   return rb_funcall_with_block(plugin, rb_intern("add_event"), 1, &rb_event_name, rb_callback);
 }
 
+static inline VALUE mikutter_plugin_add_event_filter(VALUE plugin, const char *event_name, VALUE callback) {
+  VALUE rb_event_name = rb_str_new2(event_name);
+  return rb_funcall_with_block(plugin, rb_intern("add_event_filter"), 1, &rb_event_name, callback);
+}
+
+static inline VALUE mikutter_plugin_add_event_filter(VALUE plugin, const char *event_name,
+                                                     const mikutter::CppProcFn &callback) {
+  VALUE rb_event_name = rb_str_new2(event_name);
+  VALUE rb_cpp_func = mikutter::wrap_cpp_proc_function(callback);
+  VALUE rb_callback = rb_proc_new(mikutter::cpp_proc_function_trampoline, rb_cpp_func);
+  return rb_funcall_with_block(plugin, rb_intern("add_event_filter"), 1, &rb_event_name, rb_callback);
+}
+
 #endif

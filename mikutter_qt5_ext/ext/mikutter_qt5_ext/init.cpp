@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QEventLoop>
 #include <QMainWindow>
+#include <QMenu>
 #include <QMessageBox>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -77,6 +78,34 @@ static void widget_join_tab(VALUE i_tab, QWidget *widget) {
 
   VALUE tab_name = rb_funcall3(i_tab, rb_intern("name"), 0, nullptr);
   pane->addTab(tab, StringValuePtr(tab_name));
+}
+
+static VALUE contextmenu_build_i(RB_BLOCK_CALL_FUNC_ARGLIST(param, ctx_ptr)) {
+  auto ctx = reinterpret_cast<void **>(ctx_ptr);
+  auto optional = reinterpret_cast<VALUE>(ctx[0]);
+  auto widget = static_cast<QWidget *>(ctx[1]);
+  auto menu = static_cast<QMenu *>(ctx[2]);
+
+  VALUE label = rb_ary_entry(param, 0);
+  VALUE cond = rb_ary_entry(param, 1);
+  VALUE proc = rb_ary_entry(param, 2);
+  VALUE icon = rb_ary_entry(param, 3);
+
+  auto cond_arity = rb_proc_arity(cond);
+  if (RB_TEST(rb_funcall(cond, rb_intern("call"), cond_arity == -1 ? 1 : cond_arity, optional, Qnil))) {
+    if (RB_TEST(label)) {
+      if (rb_respond_to(label, rb_intern("call"))) {
+        auto label_arity = rb_proc_arity(label);
+        label = rb_funcall(label, rb_intern("call"), label_arity == -1 ? 1 : label_arity, optional, Qnil);
+      }
+      label = rb_funcall3(label, rb_intern("to_s"), 0, nullptr);
+      menu->addAction(StringValuePtr(label));
+    } else {
+      menu->addAction("");
+    }
+  }
+
+  return Qnil;
 }
 
 static VALUE qt5_init(VALUE self, VALUE plugin) {
@@ -228,6 +257,44 @@ static VALUE qt5_init(VALUE self, VALUE plugin) {
 
                                        return Qnil;
                                      });
+
+  mikutter_plugin_add_event_filter(plugin, "gui_timeline_selected_messages",
+                                   [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
+                                     mqt_log("filter_gui_timeline_selected_messages");
+
+                                     rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
+                                     VALUE i_timeline = argv[0];
+                                     VALUE messages = argv[1];
+
+                                     auto timeline = widget_hash_lookup<Timeline *>(i_timeline);
+                                     if (timeline != nullptr) {
+                                       return rb_ary_new_from_args(2, i_timeline, rb_ary_plus(messages, timeline->getActiveMessages()));
+                                     } else {
+                                       return rb_ary_new_from_args(2, i_timeline, messages);
+                                     }
+                                   });
+
+  mikutter_plugin_add_event_listener(
+      plugin, "gui_contextmenu", [](RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg)) -> VALUE {
+        mqt_log("on_gui_contextmenu");
+
+        rb_check_arity(argc, 2, UNLIMITED_ARGUMENTS);
+        VALUE event = argv[0];
+        VALUE contextmenu = argv[1];
+
+        auto widget = widget_hash_lookup<QWidget *>(rb_funcall3(event, rb_intern("widget"), 0, nullptr));
+        if (widget != nullptr || true) {  // TODO: tmp
+          auto menu = new QMenu();
+          menu->setAttribute(Qt::WA_DeleteOnClose);
+
+          void *ctx[] = {&event, widget, menu};
+          rb_block_call(contextmenu, rb_intern("each"), 0, nullptr, contextmenu_build_i, reinterpret_cast<VALUE>(ctx));
+
+          menu->popup(QCursor::pos());
+        }
+
+        return Qnil;
+      });
 
   // TODO: ヤバすぎるので何とかする
   PSEUDO_ARGV[0] = "ruby";

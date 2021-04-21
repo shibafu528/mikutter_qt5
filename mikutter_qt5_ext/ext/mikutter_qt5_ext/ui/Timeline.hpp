@@ -1,11 +1,12 @@
 #ifndef MIKUTTER_QT5_EXT_TIMELINE_HPP
 #define MIKUTTER_QT5_EXT_TIMELINE_HPP
 
-#include <QListWidget>
+#include <QListView>
 
 #include "../mikutter.hpp"
+#include "TimelineModel.hpp"
 
-class Timeline : public QListWidget {
+class Timeline : public QListView {
   Q_OBJECT
 
 public:
@@ -13,8 +14,17 @@ public:
 
   void add(VALUE messages);
 
+  /**
+   * @return Array
+   */
+  VALUE getActiveMessages();
+
+protected:
+  void focusInEvent(QFocusEvent *event) override;
+
 private:
   VALUE imaginary;
+  TimelineModel model;
 };
 
 #endif  // MIKUTTER_QT5_EXT_TIMELINE_HPP

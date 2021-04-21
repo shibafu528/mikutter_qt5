@@ -25,6 +25,8 @@ add_library(
         ui/MikutterWindow.hpp
         ui/Timeline.cpp
         ui/Timeline.hpp
+        ui/TimelineModel.cpp
+        ui/TimelineModel.hpp
 )
 
 set_target_properties(mikutter_qt5_ext PROPERTIES PREFIX "")
