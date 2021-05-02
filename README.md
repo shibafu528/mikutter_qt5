@@ -10,7 +10,9 @@ mikutter_qt5
 分かりますね？本気でalternative実装を作る気はないし、そんな時間はありませんので……
 
 ## メモ
-mikutter/Gemfile に適当にパッチする必要あり。
+2021/5/2 現在の mikutter develop ブランチの最新版であれば下記のパッチは不要。(https://dev.mikutter.hachune.net/issues/1489 を参照)
+
+それ以前のコミットの場合は mikutter/Gemfile に適当にパッチする必要あり。
 
 ```patch
 @@ -34,6 +34,6 @@ group :plugin do
